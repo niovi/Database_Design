@@ -1,0 +1,127 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <errno.h>
+#include "hash.h"
+#include "BF.h"
+
+
+extern int errno ;
+
+
+void create_Index(char *fileName, char *attrName, char attrType, int buckets) {
+    int attrLength = (int) strlen(attrName);
+    assert(!HT_CreateIndex(fileName, attrType, attrName, attrLength, buckets));
+}
+
+HT_info *open_Index(char *fileName) {
+    HT_info *info;
+    assert((info = HT_OpenIndex(fileName)) != NULL);
+    return info;
+}
+
+void close_Index(HT_info *info) {
+    assert(!HT_CloseIndex(info));
+}
+
+void insert_Entries(HT_info *info) {
+    FILE *stream;
+    printf("insert_Entries\n");
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    int errnum;
+    stream = fopen("./datasets/100.csv","r");
+       if (stream == NULL) {
+   
+      errnum = errno;
+      fprintf(stderr, "Value of errno: %d\n", errno);
+      perror("Error printed by perror");
+      fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
+   }
+
+
+    printf("csv open: %d\n",stream);
+    Record record;
+
+
+
+    while ((read = getline(&line, &len, stream)) != -1) {
+        line[read - 2] = 0;
+        char *pch;
+
+        pch = strtok(line, ",");
+        record.id = atoi(pch);
+
+        pch = strtok(NULL, ",");
+        pch++;
+        pch[strlen(pch) - 1] = 0;
+        strncpy(record.name, pch, sizeof(record.name));
+
+        pch = strtok(NULL, ",");
+        pch++;
+        pch[strlen(pch) - 1] = 0;
+        strncpy(record.surname, pch, sizeof(record.surname));
+
+        pch = strtok(NULL, ",");
+        pch++;
+        pch[strlen(pch) - 1] = 0;
+        strncpy(record.city, pch, sizeof(record.city));
+
+
+
+        assert(!HT_InsertEntry(*info, record));
+    }
+    free(line);
+    fclose(stream);
+    printf("csv closed\n");
+}
+
+void get_AllEntries(HT_info *info, void *value) {
+    assert(HT_GetAllEntries(*info, value) != -1);
+}
+
+#define fileName "HT_hashFile"
+int main(int argc, char **argv) {
+    BF_Init();
+    printf("BF initialized\n");
+    HT_info *info;
+
+    // -- create index
+    char attrName[20];
+    int buckets = 200;
+    strcpy(attrName, "city");
+    char attrType = 'c';
+    //strcpy(attrName, "id");
+    //char attrType = 'i';
+    create_Index(fileName, attrName, attrType, buckets);
+    printf("Index created\n");
+    // -- open index
+    info = open_Index(fileName);
+    printf("Index opened\n");
+    // -- insert entries
+    insert_Entries(info);
+
+    // -- get all entries
+    char value[20];
+
+    strcpy(value, "Serres");
+    get_AllEntries(info,value);
+    //get_AllEntries(info, NULL);
+    //int value = 11903588;
+    //get_AllEntries(info, &value);
+
+    // -- close index
+    close_Index(info);
+    printf("index closed\n");
+
+    // clean up
+    //free(info->attrName);
+    //free(info);
+    //info=NULL;
+
+    HT_HashStatistics(fileName);
+
+    return EXIT_SUCCESS;
+}
